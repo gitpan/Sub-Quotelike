@@ -4,3 +4,5 @@ README
 Makefile.PL
 lib/Sub/Quotelike.pm
 t/basic.t
+t/teqf.t
+t/TEQF.pm

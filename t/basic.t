@@ -11,7 +11,7 @@ print "1..12\n";
 my $test = 0;
 sub ok ($$) {
     ++$test;
-    my $message = ' # '.$_[1] if $_[1];
+    my $message = ' - '.$_[1] if $_[1];
     if ($_[0]) {
 	print "ok $test$message\n";
     } else {

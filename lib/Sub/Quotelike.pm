@@ -5,7 +5,7 @@ use warnings;
 use Filter::Simple;
 use Text::Balanced qw/extract_quotelike/;
 
-our $VERSION = 0.02;
+our $VERSION = 0.03;
 our %qq_subs = ();
 
 FILTER {
@@ -72,6 +72,39 @@ That's all.
 To be polite with some indenters and syntax highlighters, the prototypes
 C<('')> and C<("")> are accepted as synonyms for C<(')> and C<("")>.
 
+=head1 TIPS
+
+This module is a source filter. This means that its use is perhaps less
+straightforward than other modules.
+
+Suppose you want to define a quotelike function in one of your modules
+and export it. Here's how to do it, this example using the classic rot13
+function :
+
+    package Rot13;
+    use strict;
+    use warnings;
+    use Exporter;
+    use Sub::Quotelike;
+    our @ISA = qw(Exporter);
+    our @EXPORT = qw(&qq_rot13);
+    sub qq_rot13 (") {
+	my $str = shift;
+	$str =~ tr/a-zA-Z/n-za-mN-ZA-M/;
+	return $str;
+    }
+    sub import {
+	TEQF->export_to_level(1,@_);
+	goto &Sub::Quotelike::import;
+    }
+    1;
+
+This custom C<import> method does two things : it exports the
+C<qq_rot13> symbol (see L<Exporter>, that defines the function
+C<export_to_level>), and it calls C<Sub::Quotelike::import> in the same
+stack frame. With this trick, when you do C<use Rot13> in one of your
+programs, the source filter is automagically enabled.
+
 =head1 BUGS
 
 This module has bugs !!
@@ -89,11 +122,13 @@ also works. But you'll have problems if you write a literal word 'foo'
 in your code at other places (like in C<print "xxx foo yyy">).
 
 So my advice is to use meaningful names, unlikely to clash, for your
-quotelike functions : e.g. names that begin with 'q_' or 'qq_'.
+quotelike functions : e.g. names that begin with 'q_' or 'qq_'. Disable
+also the source filter in parts of your programs where it can cause
+problems.
 
 =head1 AUTHOR
 
-Copyright (c) 2001 Rafael Garcia-Suarez. All rights reserved. This
+Copyright (c) 2001,2002 Rafael Garcia-Suarez. All rights reserved. This
 program is free software; you can redistribute it and/or modify it under
 the same terms as Perl itself.
 
