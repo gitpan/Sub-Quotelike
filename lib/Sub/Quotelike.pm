@@ -3,21 +3,31 @@ package Sub::Quotelike;
 use strict;
 use warnings;
 use Filter::Simple;
+use Text::Balanced qw/extract_quotelike/;
 
-our $VERSION = 0.01;
-our @qq_subs = ();
+our $VERSION = 0.02;
+our %qq_subs = ();
 
 FILTER {
-    while (s/(\bsub\s+(\w+)\s*)\((["'])\)/$1(\$)/) {
-	push @qq_subs, [ $2, $3 ];
+    while (s/(\bsub\s+(\w+)\s*)\((["'])\3?\)/$1(\$)/) {
+	if (exists $qq_subs{$2} && $qq_subs{$2} ne $3) {
+	    die "Prototype mismatch: $2 ($3) vs $2 ($qq_subs{$2})";
+	}
+	$qq_subs{$2} = $3;
     }
-    for my $qq_sub (@qq_subs) {
-	my $s = $qq_sub->[0];
-	my $qq = $qq_sub->[1] eq q(") ? 'qq' : 'q';
+    for my $s (keys %qq_subs) {
+	my $qq = $qq_subs{$s} eq q(") ? 'qq' : 'q';
 	s/\bsub\s+$s\b/sub __qUoTeLiKe_$s/g;
-	s/(?<![\$\@%&])\b$s\b/__qUoTeLiKe_$s $qq/g;
-	s/&$s\b/&__qUoTeLiKe_$s/g;
+	s/{\s*(["']?)$s\1\s*}/{__qUoTeLiKe_$s}/g;
+	s/(?<![\$\@%&*])\b$s\b(?!\s*=>)/__qUoTeLiKe_$s($qq/g;
+	while (/__qUoTeLiKe_$s\((?=q)/g) {
+	    my $savepos = pos;
+	    () = extract_quotelike($_);
+	    s/\G/)/;
+	    pos() = $savepos;
+	}
     }
+    s/__qUoTeLiKe_//g;
 };
 
 1;
@@ -47,6 +57,9 @@ Sub::Quotelike - Allow to define quotelike functions
     print myq/abc def/;
     print myqq{abc $def @ghi\n};
 
+    no Sub::Quotelike; # disallows quotelike functions
+		       # in the remaining code
+
 =head1 DESCRIPTION
 
 This module allows to define quotelike functions, that mimic the
@@ -56,9 +69,12 @@ To define a quotelike function that interpolates quoted text, use
 the new C<(")> prototype. For non-interpolating functions, use C<(')>.
 That's all.
 
+To be polite with some indenters and syntax highlighters, the prototypes
+C<('')> and C<("")> are accepted as synonyms for C<(')> and C<("")>.
+
 =head1 BUGS
 
-This module does have bugs !!
+This module has bugs !!
 
 It uses Filter::Simple internally. As I don't want to reimplement the
 perl tokenizer today, this means that it only performs some heuristic
@@ -66,10 +82,11 @@ substitutions on the perl source code, to replace quotelike function
 calls by something more meaningful to plain perl 5.
 
 Basically, if you have a quotelike function C<foo>, you'll be able to
-use variables $foo, @foo, and %foo, and to use &foo(...) if you want to
-bypass the quotelike syntax. But you'll have problems if you write
-a literal word 'foo' in your code at other places (like C<$hash{foo}>
-or C<print "xxx foo yyy">).
+use without pain the variables $foo, @foo, and %foo, and to use
+&foo(...) if you want to bypass the quotelike syntax. 'foo' quoted by a
+fat comma (as in C<foo =E<gt> 1>) and as a bare hash key (C<$hash{foo}>)
+also works. But you'll have problems if you write a literal word 'foo'
+in your code at other places (like in C<print "xxx foo yyy">).
 
 So my advice is to use meaningful names, unlikely to clash, for your
 quotelike functions : e.g. names that begin with 'q_' or 'qq_'.
