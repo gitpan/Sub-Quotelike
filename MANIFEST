@@ -1,0 +1,6 @@
+MANIFEST
+Changes
+README
+Makefile.PL
+lib/Sub/Quotelike.pm
+t/basic.t
